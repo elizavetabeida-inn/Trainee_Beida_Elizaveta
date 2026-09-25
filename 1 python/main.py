@@ -4,56 +4,82 @@ from reader import DataReader
 from uploader import DataUploader
 from analytics import AnalyticsService
 from exporter import DataExporter
+import argparse
+import logging
 
-db = Database(db_params)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-# создание таблиц
-schema_sql = """
-    CREATE TABLE IF NOT EXISTS rooms (
-        id INT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL 
-    );
+logger = logging.getLogger(__name__)
 
-    CREATE TABLE IF NOT EXISTS students (
-        id INT PRIMARY KEY ,
-        birthday DATE NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        room INT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
-        sex CHAR(1) NOT NULL
-    );
-"""
-db.execute_script(schema_sql)
+def main():
+    parser = argparse.ArgumentParser(description="Load student and room data into DB")
 
+    parser.add_argument("--students", required=True, help="Path to students file")
 
-# загрузка данных из файлов json
-rooms_data = DataReader.load_json("rooms.json")
-students_data = DataReader.load_json("students.json")
+    parser.add_argument("--rooms", required=True, help="Path to rooms file")
 
-uploader = DataUploader(db)
-uploader.upload_rooms(rooms_data)
-uploader.upload_students(students_data)
+    args = parser.parse_args()
 
+    db = Database(db_params)
 
-# создание индексов
-indexes_sql = """
-    CREATE INDEX IF NOT EXISTS idx_students_room_id ON students(room);
-    CREATE INDEX IF NOT EXISTS idx_students_room_birthday ON students(room, birthday);
-    CREATE INDEX IF NOT EXISTS idx_students_room_sex ON students(room, sex);
-"""
-db.execute_script(indexes_sql)
-
-
-# выполнение аналитических запросов
-analytics = AnalyticsService(db)
-results = {
-    "rooms_with_student_count": analytics.get_rooms_with_student_count(),
-    "top5_smallest_avg_age": analytics.get_top5_smallest_avg_age(),
-    "top5_biggest_age_difference": analytics.get_top5_biggest_age_difference(),
-    "mixed_sex_rooms": analytics.get_mixed_sex_rooms()
-}
-
-# выгрузка результатов запросов в output.json
-DataExporter.export_json(results, "output.json")
-print(f"Готово! Результаты сохранены в файл: output.json")
+    # создание таблиц
+    schema_sql = """
+        CREATE TABLE IF NOT EXISTS rooms (
+            id INT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL 
+        );
+        
+        DO $$
+        BEGIN
+            CREATE TYPE sex_type AS ENUM ('M', 'F');
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+        END
+        $$;
+        
+        CREATE TABLE IF NOT EXISTS students (
+            id INT PRIMARY KEY ,
+            birthday DATE NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            room INT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+            sex sex_type NOT NULL
+        );
+    """
+    db.execute_script(schema_sql)
 
 
+    # загрузка данных из файлов json
+    rooms_data = DataReader.load_json(args.rooms)
+    students_data = DataReader.load_json(args.students)
+
+    uploader = DataUploader(db)
+    uploader.upload_rooms(rooms_data)
+    uploader.upload_students(students_data)
+
+
+    # создание индексов
+    indexes_sql = """
+        CREATE INDEX IF NOT EXISTS idx_students_room_birthday ON students(room, birthday);
+        CREATE INDEX IF NOT EXISTS idx_students_room_sex ON students(room, sex);
+    """
+    db.execute_script(indexes_sql)
+
+
+    # выполнение аналитических запросов
+    analytics = AnalyticsService(db)
+    results = {
+        "rooms_with_student_count": analytics.get_rooms_with_student_count(),
+        "top5_smallest_avg_age": analytics.get_top5_smallest_avg_age(),
+        "top5_biggest_age_difference": analytics.get_top5_biggest_age_difference(),
+        "mixed_sex_rooms": analytics.get_mixed_sex_rooms()
+    }
+
+    # выгрузка результатов запросов в output.json
+    DataExporter.export_json(results, "output.json")
+    logger.info("Готово! Результаты сохранены в файл: output.json")
+
+if __name__ == "__main__":
+    main()
