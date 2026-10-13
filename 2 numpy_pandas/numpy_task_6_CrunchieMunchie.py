@@ -1,6 +1,6 @@
 import numpy as np
 
-calorie_stats = np.loadtxt("cereal.csv", delimiter=",")
+calorie_stats = np.loadtxt("data/cereal.csv", delimiter=",")
 
 #в комментариях я вставила строки из задания, чтоб был понятен контекст)
 #Разница между средним значением калорий продукции конкурентов и нашими CrunchieMunchies (60 ккал)
