@@ -1,4 +1,12 @@
 import pandas as pd
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 
 def load_and_aggregate_bom(file_path: str) -> pd.DataFrame:
     """Загружает датасет и агрегирует помесячные данные до годового уровня (plant, year)"""
@@ -18,15 +26,12 @@ def load_and_aggregate_bom(file_path: str) -> pd.DataFrame:
         "component_material_release_type",
     ]
 
-    #суммируем помесячные объемы quantity для каждой уникальной пары материал-компонент
-    agg_df = (
-        df.groupby(group_cols, as_index=False, dropna=False)
-        .agg(
-            {
-                "produced_material_quantity": "sum",
-                "component_material_quantity": "sum",
-            }
-        )
+    # суммируем помесячные объемы quantity для каждой уникальной пары материал-компонент
+    agg_df = df.groupby(group_cols, as_index=False, dropna=False).agg(
+        {
+            "produced_material_quantity": "sum",
+            "component_material_quantity": "sum",
+        }
     )
 
     return agg_df
@@ -41,8 +46,10 @@ def explode_bom_hierarchy(agg_df: pd.DataFrame) -> pd.DataFrame:
         # находим все FIN-материалы этого завода и этого года
         fin_rows = group[group["produced_material_release_type"] == "FIN"]
 
-        prod_components = {} # словарь где хранится:  PROD -> список его компонентов
-        for _, row in group[group["produced_material_release_type"] == "PROD"].iterrows():
+        prod_components = {}  # словарь где хранится:  PROD -> список его компонентов
+        for _, row in group[
+            group["produced_material_release_type"] == "PROD"
+        ].iterrows():
             parent = row["produced_material"]
             if parent not in prod_components:
                 prod_components[parent] = []
@@ -59,7 +66,7 @@ def explode_bom_hierarchy(agg_df: pd.DataFrame) -> pd.DataFrame:
 
             def traverse(current_prod_id):
                 """рекурсивный обход производственного дерева"""
-                #проверяем на тупик в нашем словарике где: PROD -> список его компонентов (проверяем есть ли еще подкомпоненты)
+                # проверяем на тупик в нашем словарике где: PROD -> список его компонентов (проверяем есть ли еще подкомпоненты)
                 if current_prod_id not in prod_components:
                     return
 
@@ -73,13 +80,25 @@ def explode_bom_hierarchy(agg_df: pd.DataFrame) -> pd.DataFrame:
                             "fin_material_production_type": fin_prod_type,
                             "fin_production_quantity": fin_qty,
                             "prod_material_id": comp_row["produced_material"],
-                            "prod_material_release_type": comp_row["produced_material_release_type"],
-                            "prod_material_production_type": comp_row["produced_material_production_type"],
-                            "prod_material_production_quantity": comp_row["produced_material_quantity"],
+                            "prod_material_release_type": comp_row[
+                                "produced_material_release_type"
+                            ],
+                            "prod_material_production_type": comp_row[
+                                "produced_material_production_type"
+                            ],
+                            "prod_material_production_quantity": comp_row[
+                                "produced_material_quantity"
+                            ],
                             "component_id": comp_row["component_material"],
-                            "component_material_release_type": comp_row["component_material_release_type"],
-                            "component_material_production_type": comp_row["component_material_production_type"],
-                            "component_consumption_quantity": comp_row["component_material_quantity"],
+                            "component_material_release_type": comp_row[
+                                "component_material_release_type"
+                            ],
+                            "component_material_production_type": comp_row[
+                                "component_material_production_type"
+                            ],
+                            "component_consumption_quantity": comp_row[
+                                "component_material_quantity"
+                            ],
                             "year": year,
                         }
                     )
@@ -112,10 +131,11 @@ def explode_bom_hierarchy(agg_df: pd.DataFrame) -> pd.DataFrame:
 
     return res_df[final_cols]
 
+
 file_path = "data/task_2_data_ex.xlsx"
 
 agg_df = load_and_aggregate_bom(file_path)
 final_bom_df = explode_bom_hierarchy(agg_df)
 
 final_bom_df.to_excel("data/bom_result.xlsx", index=False)
-print(f"Успешно обработано. Итоговое количество строк: {len(final_bom_df)}")
+logging.info("Успешно обработано. Итоговое количество строк: %s", len(final_bom_df))
