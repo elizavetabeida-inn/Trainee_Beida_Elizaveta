@@ -21,3 +21,8 @@
 ## Логирование пустого input файла
 
 <img width="1280" height="648" alt="log_empty_file" src="https://github.com/user-attachments/assets/8d5b0605-2b86-45ca-8398-7e1c2f042bc4" />
+
+
+## Загруженные документы в MongoDB
+
+<img width="1280" height="643" alt="mongoDB" src="https://github.com/user-attachments/assets/4a3759eb-a97d-44ba-9172-f1644ad13718" />
