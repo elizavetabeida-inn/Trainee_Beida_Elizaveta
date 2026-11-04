@@ -6,8 +6,9 @@ from airflow.decorators import dag, task
 from airflow import Dataset
 from airflow.providers.mongo.hooks.mongo import MongoHook
 
-PROCESSED_FILE = "/opt/airflow/dags/data/processed_data.csv"
-processed_dataset = Dataset(PROCESSED_FILE)
+from config import PROCESSED_FILE
+
+processed_dataset = Dataset(str(PROCESSED_FILE))
 
 @dag(
     dag_id = "dag2_load_to_mongo",
@@ -20,6 +21,8 @@ def dag2_load_to_mongo():
 
     @task(task_id = "load_to_mongo")
     def load_to_mongo():
+        """Load processed review data into MongoDB"""
+        
         df = pd.read_csv(PROCESSED_FILE)
         records = df.to_dict(orient = "records")
 
