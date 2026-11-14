@@ -6,3 +6,5 @@ __pycache__/
 *.csv
 *.xlsx
 .ruff_cache/
+*.json
+data/
